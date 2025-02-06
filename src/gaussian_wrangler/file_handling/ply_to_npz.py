@@ -57,7 +57,7 @@ def ply_to_npz(path):
 
     sz = splat_matrix.shape[0]
     splat_matrix = clip(splat_matrix)
-    print(f"Clipped {sz - splat_matrix.shape[0]} points")
+    print(f"Clipped {sz - splat_matrix.shape[0]} splats")
 
     # check if voxelisation is possible
     n_voxels = 125
