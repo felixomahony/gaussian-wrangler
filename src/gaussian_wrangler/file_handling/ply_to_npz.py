@@ -10,6 +10,10 @@ def ply_to_npz(path):
     assert splat.elements[0].name == "vertex"
     assert len(splat.elements[0].data) > 0
 
+    full_splats = True
+    if len(splat.elements[0].data[0]) != 23:
+        full_splats = False
+
     splat_matrix = np.zeros((len(splat.elements[0].data), 23))
     # 23 components
     # x, y, z, f_dc_0, f_dc_1, f_dc_2, f_rest_0..8, opacity, scale_0..2, rot_0..3
@@ -34,13 +38,22 @@ def ply_to_npz(path):
     # scale
     splat_matrix[:, 16] = splat.elements[0].data["scale_0"]
     splat_matrix[:, 17] = splat.elements[0].data["scale_1"]
-    splat_matrix[:, 18] = splat.elements[0].data["scale_2"]
+    if full_splats:
+        splat_matrix[:, 18] = splat.elements[0].data["scale_2"]
 
     # rot
     splat_matrix[:, 19] = splat.elements[0].data["rot_0"]
     splat_matrix[:, 20] = splat.elements[0].data["rot_1"]
     splat_matrix[:, 21] = splat.elements[0].data["rot_2"]
     splat_matrix[:, 22] = splat.elements[0].data["rot_3"]
+
+    if not full_splats:
+        splat_matrix = np.hstack(
+            [
+                splat_matrix[:, :18],
+                splat_matrix[:, 19:],
+            ],
+        )
 
     sz = splat_matrix.shape[0]
     splat_matrix = clip(splat_matrix)
