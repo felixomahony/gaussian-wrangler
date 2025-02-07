@@ -3,7 +3,7 @@ from tqdm import tqdm
 import plyfile
 
 
-def ply_to_npz(path):
+def ply_to_npz(path, n_voxels=125):
     splat = plyfile.PlyData.read(path)
 
     assert len(splat.elements) == 1
@@ -11,8 +11,10 @@ def ply_to_npz(path):
     assert len(splat.elements[0].data) > 0
 
     full_splats = True
-    if len(splat.elements[0].data[0]) != 23:
+    if len(splat.elements[0].data[0]) != 26:
         full_splats = False
+    elif len(splat.elements[0].data[0]) != 25:
+        raise ValueError("Unsupported number of components")
 
     splat_matrix = np.zeros((len(splat.elements[0].data), 23))
     # 23 components
@@ -60,7 +62,6 @@ def ply_to_npz(path):
     print(f"Clipped {sz - splat_matrix.shape[0]} splats")
 
     # check if voxelisation is possible
-    n_voxels = 125
     voxel_indices = np.floor(splat_matrix[:, :3] * n_voxels).astype(int)
     voxel_centers = (voxel_indices + 0.5) / n_voxels
 
@@ -74,12 +75,12 @@ def ply_to_npz(path):
     splat_matrix[:, :3] -= voxel_centers
     splat_matrix[:, :3] *= n_voxels
 
-    splat_matrix, voxel_indices = set_voxels(splat_matrix, voxel_indices)
+    splat_matrix, voxel_indices = set_voxels(splat_matrix, voxel_indices, n_voxels)
 
     return splat_matrix, voxel_indices
 
 
-def set_voxels(splat_matrix, voxel_indices):
+def set_voxels(splat_matrix, voxel_indices, n_voxels):
     n_splats = splat_matrix.shape[0]
     mask = np.ones(n_splats, dtype=bool)
     n_fixed = 0
@@ -93,16 +94,22 @@ def set_voxels(splat_matrix, voxel_indices):
                 if i == j == k == 0:
                     continue
                 ijk = np.array([i, j, k])
-                if not np.any(
-                    np.all(
-                        voxel_indices[v + 1 :] == (voxels + offsets_signed * ijk)[None],
-                        axis=1,
+                if (
+                    not np.any(
+                        np.all(
+                            voxel_indices[v + 1 :]
+                            == (voxels + offsets_signed * ijk)[None],
+                            axis=1,
+                        )
                     )
-                ) and not np.any(
-                    np.all(
-                        voxel_indices[:v] == (voxels + offsets_signed * ijk)[None],
-                        axis=1,
+                    and not np.any(
+                        np.all(
+                            voxel_indices[:v] == (voxels + offsets_signed * ijk)[None],
+                            axis=1,
+                        )
                     )
+                    and not np.any((voxels + offsets_signed * ijk) < 0)
+                    and not np.any((voxels + offsets_signed * ijk) >= n_voxels)
                 ):
                     splat_matrix[v, :3] += -offsets_signed * ijk + splat_matrix[v, :3]
                     voxel_indices[v] = voxels + offsets_signed * ijk
