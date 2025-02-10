@@ -40,6 +40,12 @@ def gaussians_from_np(gaussian_array: np.ndarray | torch.Tensor) -> GaussianMode
     if isinstance(gaussian_array, np.ndarray):
         gaussian_array = torch.tensor(gaussian_array, dtype=torch.float32).to("cuda")
 
+    if gaussian_array.device != "cuda":
+        # print(
+        #     f"Gaussians were on device: {gaussian_array.device}. Moving to cuda. Note that this will break computation graph."
+        # )
+        gaussian_array = gaussian_array.to("cuda")
+
     gaussians = GaussianModel(sh_degree=1)
 
     xyz = gaussian_array[:, :3]

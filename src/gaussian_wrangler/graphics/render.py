@@ -86,7 +86,7 @@ def render_image(gaussians, out_path=None, camera=None, sh_degree=1):
             cam = camera_from_dict(camera)
         else:
             raise ValueError(
-                f"Invalid camera type: {type(camera)}. Must be Camera or dict"
+                f"Invalid camera type: {type(camera)}. Must be Camera or dict or none"
             )
     else:
         cam = default_camera()
