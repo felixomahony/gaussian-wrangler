@@ -113,14 +113,14 @@ def render_image(gaussians, out_path=None, camera=None, sh_degree=1):
             dim=1,
         )  # Add third dimension to scaling
 
-    print(
-        gaussians._xyz.shape,
-        gaussians._features_dc.shape,
-        gaussians._features_rest.shape,
-        gaussians._opacity.shape,
-        gaussians._scaling.shape,
-        gaussians._rotation.shape,
-    )
+    # print(
+    #     gaussians._xyz.shape,
+    #     gaussians._features_dc.shape,
+    #     gaussians._features_rest.shape,
+    #     gaussians._opacity.shape,
+    #     gaussians._scaling.shape,
+    #     gaussians._rotation.shape,
+    # )
 
     # 3. Setup background color
     background = torch.zeros(3).to("cuda")
@@ -132,7 +132,7 @@ def render_image(gaussians, out_path=None, camera=None, sh_degree=1):
     rendering = render(
         cam, gaussians, pipeline, background, use_trained_exp=False, separate_sh=False
     )["render"]
-    print("rendered")
+    # print("rendered")
 
     # 5. Save rendering
     if out_path is not None:
