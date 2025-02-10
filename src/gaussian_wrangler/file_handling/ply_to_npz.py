@@ -80,7 +80,41 @@ def ply_to_matrix(path):
     return splat_to_matrix(splat)
 
 
+def voxels_to_xyz(voxel_offsets, voxel_indices, n_voxels):
+    voxel_centers = (voxel_indices + 0.5) / n_voxels
+
+    # check if tensor or numpy
+    if isinstance(voxel_offsets, np.ndarray):
+        voxel_offsets_ = voxel_offsets.copy()
+    else:
+        voxel_offsets_ = voxel_offsets.clone()
+
+    voxel_offsets_[:, :3] = voxel_offsets[:, :3] / (n_voxels * 2.0) + voxel_centers
+
+    return voxel_offsets_
+
+
 def set_voxels(splat_matrix, n_voxels):
+    """
+    Set the splats to the voxel grid
+
+    Parameters
+    ----------
+    splat_matrix : np.ndarray
+        The splat matrix
+    n_voxels : int
+        The number of voxels in each dimension
+
+    Returns
+    -------
+    splat_matrix : np.ndarray
+        The splat matrix with xyz components replaced by voxel offsets
+    voxel_indices : np.ndarray
+        The indices of the voxels that the splats are in
+
+
+    """
+
     sz = splat_matrix.shape[0]
     splat_matrix = clip(splat_matrix)
     print(f"Clipped {sz - splat_matrix.shape[0]} splats (out of bounds)")
@@ -88,26 +122,23 @@ def set_voxels(splat_matrix, n_voxels):
     # check if voxelisation is possible
     voxel_indices = np.floor(splat_matrix[:, :3] * n_voxels).astype(int)
     voxel_centers = (voxel_indices + 0.5) / n_voxels
+    splat_matrix[:, :3] -= voxel_centers
+    splat_matrix[:, :3] *= n_voxels * 2.0
 
     # check if voxel_indices are unique
     print("Initial number of splats:", len(voxel_indices))
     print(
-        "Number of overlapping voxels:",
+        "Number of voxels which need to be moved:",
         len(voxel_indices) - len(np.unique(voxel_indices, axis=0)),
     )
 
-    splat_matrix[:, :3] -= voxel_centers
-    splat_matrix[:, :3] *= n_voxels
-
     n_splats = splat_matrix.shape[0]
-    mask = np.ones(n_splats, dtype=bool)
     n_fixed = 0
     for v in range(n_splats):
         voxels = voxel_indices[v]
         if np.any(np.all(voxel_indices[v + 1 :] == voxels[None], axis=1)):
             offsets = splat_matrix[v, :3]
-            offsets_signed = np.sign(offsets)
-            fix_found = False
+            offsets_signed = (offsets >= 0).astype(float) * 2 - 1
             for i, j, k in np.ndindex(2, 2, 2):
                 if i == j == k == 0:
                     continue
@@ -129,14 +160,19 @@ def set_voxels(splat_matrix, n_voxels):
                     and not np.any((voxels + offsets_signed * ijk) < 0)
                     and not np.any((voxels + offsets_signed * ijk) >= n_voxels)
                 ):
-                    splat_matrix[v, :3] += -offsets_signed * ijk + splat_matrix[v, :3]
+                    splat_matrix[v, :3] += -offsets_signed * ijk * 2
                     voxel_indices[v] = voxels + offsets_signed * ijk
                     fix_found = True
                     n_fixed += 1
                     break
 
-            if not fix_found:
-                mask[v] = False
+    # mask out the first instance of any voxel which appears twice
+    mask = np.ones(n_splats, dtype=bool)
+    for v in range(n_splats):
+        voxels = voxel_indices[v]
+        if np.any(np.all(voxel_indices[v + 1 :] == voxels[None], axis=1)):
+            mask[v] = False
+            continue
 
     print("Fixed", n_fixed, "splats")
     print(f"Removed {np.sum(~mask)} overlapping splats")

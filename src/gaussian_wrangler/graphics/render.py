@@ -81,35 +81,29 @@ def render_image(gaussians, out_path=None, camera=None, sh_degree=1):
     # 1. Setup camera
     if camera is not None:
         if isinstance(camera, Camera):
-            print("Using provided camera")
             cam = camera
         elif isinstance(camera, dict):
-            print("Loading camera from dictionary")
             cam = camera_from_dict(camera)
         else:
             raise ValueError(
                 f"Invalid camera type: {type(camera)}. Must be Camera or dict"
             )
     else:
-        print("Using default camera")
         cam = default_camera()
 
     # 2. Load gaussians
     if isinstance(gaussians, GaussianModel):
-        print("Using provided GaussianModel")
         gaussians = gaussians
     elif isinstance(gaussians, str):
-        print("Loading GaussianModel from path")
         gaussian_path = gaussians
         gaussians = GaussianModel(sh_degree=sh_degree)
         gaussians.load_ply(path=gaussian_path)
-    elif isinstance(gaussians, np.ndarray):
-        print("Loading Gaussians from numpy array")
+    elif isinstance(gaussians, np.ndarray) or isinstance(gaussians, torch.Tensor):
         gaussians = gaussians_from_np(gaussians)
 
     if gaussians._scaling.shape[1] == 2:
         gaussians._scaling = torch.cat(
-            [gaussians._scaling, torch.ones_like(gaussians._scaling[:, :1]) * -10],
+            [gaussians._scaling, torch.ones_like(gaussians._scaling[:, :1]) * -5],
             dim=1,
         )  # Add third dimension to scaling
 
