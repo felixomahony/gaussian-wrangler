@@ -3,20 +3,24 @@ from tqdm import tqdm
 import plyfile
 
 
-def ply_to_npz(path, n_voxels=125):
+def load_ply(path):
     splat = plyfile.PlyData.read(path)
 
     assert len(splat.elements) == 1
     assert splat.elements[0].name == "vertex"
     assert len(splat.elements[0].data) > 0
 
+    return splat
+
+
+def splat_to_matrix(splat: plyfile.PlyData):
     full_splats = True
     if len(splat.elements[0].data[0]) != 26:
         full_splats = False
     elif len(splat.elements[0].data[0]) != 25:
         raise ValueError("Unsupported number of components")
-
     splat_matrix = np.zeros((len(splat.elements[0].data), 23))
+
     # 23 components
     # x, y, z, f_dc_0, f_dc_1, f_dc_2, f_rest_0..8, opacity, scale_0..2, rot_0..3
 
@@ -57,16 +61,36 @@ def ply_to_npz(path, n_voxels=125):
             ],
         )
 
+    return splat_matrix
+
+
+def ply_to_npz(path, n_voxels=125):
+    splat = load_ply(path)
+
+    splat_matrix = splat_to_matrix(splat)
+
+    splat_matrix, voxel_indices = set_voxels(splat_matrix, n_voxels)
+
+    return splat_matrix, voxel_indices
+
+
+def ply_to_matrix(path):
+    splat = load_ply(path)
+
+    return splat_to_matrix(splat)
+
+
+def set_voxels(splat_matrix, n_voxels):
     sz = splat_matrix.shape[0]
     splat_matrix = clip(splat_matrix)
-    print(f"Clipped {sz - splat_matrix.shape[0]} splats")
+    print(f"Clipped {sz - splat_matrix.shape[0]} splats (out of bounds)")
 
     # check if voxelisation is possible
     voxel_indices = np.floor(splat_matrix[:, :3] * n_voxels).astype(int)
     voxel_centers = (voxel_indices + 0.5) / n_voxels
 
     # check if voxel_indices are unique
-    print("Total number of voxels:", len(voxel_indices))
+    print("Initial number of splats:", len(voxel_indices))
     print(
         "Number of overlapping voxels:",
         len(voxel_indices) - len(np.unique(voxel_indices, axis=0)),
@@ -75,12 +99,6 @@ def ply_to_npz(path, n_voxels=125):
     splat_matrix[:, :3] -= voxel_centers
     splat_matrix[:, :3] *= n_voxels
 
-    splat_matrix, voxel_indices = set_voxels(splat_matrix, voxel_indices, n_voxels)
-
-    return splat_matrix, voxel_indices
-
-
-def set_voxels(splat_matrix, voxel_indices, n_voxels):
     n_splats = splat_matrix.shape[0]
     mask = np.ones(n_splats, dtype=bool)
     n_fixed = 0
